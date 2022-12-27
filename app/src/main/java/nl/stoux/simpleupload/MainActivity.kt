@@ -16,6 +16,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.*
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -177,7 +178,6 @@ class MainActivity : ComponentActivity() {
                                 Text(text = "Moving file...")
                                 CircularProgressIndicator()
                             } else if (uiState.uploadedFile != null) {
-
                                 Spacer(modifier = Modifier.height(8.dp))
 
                                 Text("File uploaded!")
@@ -244,15 +244,79 @@ class MainActivity : ComponentActivity() {
                                     OutlinedTextField(
                                         modifier = Modifier.fillMaxWidth(0.9f),
                                         value = finalFilename,
-                                        onValueChange = { finalFilename = it }
+                                        onValueChange = { finalFilename = it },
+                                        trailingIcon = {
+                                            IconButton(onClick = { finalFilename = "" }) {
+                                                Icon(
+                                                    imageVector = Icons.Default.Close,
+                                                    contentDescription = "Open Options"
+                                                )
+                                            }
+                                        }
                                     )
+
+                                    var showInvalidDialog by remember{ mutableStateOf(false) }
+                                    val invalidFilename = finalFilename.isNotEmpty()
+                                            && ( !finalFilename.matches(Regex("^.+\\..+$")) || finalFilename.contains(Regex("\\s") ))
+
+                                    Spacer(modifier = Modifier.height(4.dp))
+
+                                    TextButton(onClick = { finalFilename = viewModel.capitalizeAndClean(finalFilename) }, enabled = invalidFilename) {
+                                        Text("Collapse & capitalize")
+                                    }
+
+                                    Spacer(modifier = Modifier.height(8.dp))
 
                                     Button(
                                         enabled = finalFilename != "",
-                                        onClick = { viewModel.move(uploadToDir!!, finalFilename) }
+                                        onClick = {
+                                            if (invalidFilename) {
+                                                showInvalidDialog = true
+                                            } else {
+                                                viewModel.move(uploadToDir!!, finalFilename)
+                                            }
+                                        }
                                     ) {
                                         Text("Move to folder")
                                     }
+
+                                    if (showInvalidDialog) {
+                                        AlertDialog(
+                                            title = {
+                                                Text(
+                                                    text = "Are you sure?",
+                                                    style = MaterialTheme.typography.h5,
+                                                )
+                                            },
+                                            text = {
+                                                Text(text = "The current filename seems to be invalid (spaces or no extension). Are you sure you want to save it like this?")
+                                            },
+                                            buttons = {
+                                                Row(
+                                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                                    modifier = Modifier
+                                                        .fillMaxWidth()
+                                                        .padding(
+                                                            start = 16.dp,
+                                                            end = 16.dp,
+                                                            bottom = 16.dp
+                                                        ),
+                                                ) {
+                                                    TextButton(onClick = { showInvalidDialog = false}) {
+                                                        Text(text = "Cancel")
+                                                    }
+                                                    Button(onClick = {
+                                                        showInvalidDialog = false
+                                                        viewModel.move(uploadToDir!!, finalFilename)
+                                                    }) {
+                                                        Text(text = "Confirm")
+                                                    }
+                                                }
+                                            },
+                                            onDismissRequest = { showInvalidDialog = false }
+                                        )
+                                    }
+
                                 }
                             } else {
                                 Button(onClick = { viewModel.upload() }) {

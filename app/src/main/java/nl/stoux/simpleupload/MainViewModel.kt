@@ -23,6 +23,7 @@ data class ViewModelState(
     val currentView: State = State.OVERVIEW,
     val selectedFile: Uri? = null,
     val selectedFilename: String? = null,
+    val prefilledFolder: String? = null,
     val isUploading: Boolean = false,
     val isMoving: Boolean = false,
     val uploadProgress: Int = 0,
@@ -95,10 +96,21 @@ class MainViewModel(
                             )
                         }
 
+                        // Fetch the saved dirs if not done yet (from the API)
                         if (viewModelState.value.savedDirs == null) {
                             when (val dirs = appContainer.api.listSavedDirs()) {
                                 is ApiResult.Error -> viewModelState.update { it.copy(error = "Failed to get upload dirs") }
                                 is ApiResult.Success -> viewModelState.update { it.copy(savedDirs = dirs.data) }
+                            }
+                        }
+
+                        // Try to determine a preferred dir
+                        val ext = getSelectedFilenameExtension()
+                        if (ext != null) {
+                            viewModelState.value.savedDirs?.forEach { dir ->
+                                if (ext == dir || (viewModelState.value.prefilledFolder == null && dir.contains(ext))) {
+                                    viewModelState.update { it.copy( prefilledFolder = dir ) }
+                                }
                             }
                         }
 
@@ -134,6 +146,7 @@ class MainViewModel(
                             selectedFile = null,
                             uploadProgress = 0,
                             uploadedFile = null,
+                            prefilledFolder = null,
                             error = null,
                         )
                     }
@@ -155,6 +168,32 @@ class MainViewModel(
 
     fun setCheckedIntent() {
         viewModelState.update { it.copy( hasCheckedIntent = true ) }
+    }
+
+    fun capitalizeAndClean( filename: String ): String {
+        val spacesRegex = Regex("\\s+")
+        var result = filename.replace(Regex("\\s+[a-zA-Z]"), transform = {
+            it.value.replace(spacesRegex, "").uppercase()
+        })
+        result = result.replace(spacesRegex, "")
+
+        if (!result.matches(Regex("^.+\\..+$"))) {
+            val ext = getSelectedFilenameExtension()
+            if (ext != null) {
+                result += ".$ext"
+            }
+        }
+
+        return result
+    }
+
+    private fun getSelectedFilenameExtension(): String? {
+        val split = viewModelState.value.selectedFilename?.split(".")
+        return if (split != null && split.size > 1) {
+            split[split.size - 1]
+        } else {
+            null
+        }
     }
 
 
