@@ -23,6 +23,7 @@ data class ViewModelState(
     val currentView: State = State.OVERVIEW,
     val selectedFile: Uri? = null,
     val selectedFilename: String? = null,
+    val previewType: PreviewType? = null,
     val prefilledFolder: String? = null,
     val isUploading: Boolean = false,
     val isMoving: Boolean = false,
@@ -32,6 +33,11 @@ data class ViewModelState(
 
     val error: String? = null,
 )
+
+enum class PreviewType {
+    VIDEO,
+    IMAGE,
+}
 
 
 class MainViewModel(
@@ -47,15 +53,22 @@ class MainViewModel(
         viewModelState.value
     )
 
-    fun selectedFile(uri: Uri?, name: String?) {
+    fun selectedFile(uri: Uri?, name: String?, type: String? = null) {
         viewModelState.update { it.copy(
             selectedFile = uri,
             selectedFilename = name,
-            currentView = if ( uri != null && name != null ) {
+            previewType = if (type != null && type.startsWith("image/")) {
+                PreviewType.IMAGE
+            } else if (type != null && type.startsWith("video/")) {
+                PreviewType.VIDEO
+            } else {
+                null
+            },
+            currentView = if (uri != null && name != null) {
                 State.FILE_SELECTED
             } else {
                 State.OVERVIEW
-            }
+            },
         ) }
     }
 

@@ -11,9 +11,11 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
@@ -22,11 +24,19 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.window.Dialog
 import nl.stoux.simpleupload.ui.theme.SimpleUploadTheme
 import androidx.lifecycle.viewmodel.compose.viewModel
+import coil.compose.rememberAsyncImagePainter
+import coil.request.ImageRequest
+import com.google.android.exoplayer2.ExoPlayer
+import com.google.android.exoplayer2.MediaItem
+import com.google.android.exoplayer2.ui.StyledPlayerView
 
 
 class MainActivity : ComponentActivity() {
@@ -179,7 +189,7 @@ class MainActivity : ComponentActivity() {
                                 CircularProgressIndicator()
                             } else if (uiState.uploadedFile != null) {
                                 Spacer(modifier = Modifier.height(8.dp))
-
+//https://5ff2-143-178-38-25.eu.ngrok.io/
                                 Text("File uploaded!")
                                 Text("Select folder to move to:")
 
@@ -318,6 +328,7 @@ class MainActivity : ComponentActivity() {
                                     }
 
                                 }
+
                             } else {
                                 Button(onClick = { viewModel.upload() }) {
                                     Text(text = "Upload!")
@@ -337,6 +348,32 @@ class MainActivity : ComponentActivity() {
                                 Text(text = uiState.error!!, color = Color.Red)
                             }
 
+                            if (uiState.previewType != null) {
+                                Spacer(modifier = Modifier.weight(1f))
+                                Row(modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(200.dp)) {
+                                    if (uiState.previewType == PreviewType.IMAGE) {
+                                        Image(
+                                            painter = rememberAsyncImagePainter(
+                                                ImageRequest
+                                                    .Builder(applicationContext)
+                                                    .data(data = uiState.selectedFile)
+                                                    .build()
+                                            ),
+                                            contentDescription = null,
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .fillMaxHeight(),
+                                            contentScale = ContentScale.Fit
+                                        )
+                                    } else if (uiState.previewType == PreviewType.VIDEO) {
+                                        VideoView(videoUri = uiState.selectedFile!!)
+                                    }
+                                }
+                                Spacer(modifier = Modifier.height(8.dp))
+                            }
+
                         }
 
 
@@ -353,9 +390,35 @@ class MainActivity : ComponentActivity() {
             cursor.moveToFirst()
             cursor.getString(nameIndex)
         }?.let { filename ->
-            viewModel.selectedFile(uri, filename)
+            viewModel.selectedFile(uri, filename, contentResolver.getType(uri))
         }
     }
+
+    @Composable
+    private fun VideoView(videoUri: Uri) {
+        val context = LocalContext.current
+
+        val exoPlayer = ExoPlayer.Builder(LocalContext.current)
+            .build()
+            .also { exoPlayer ->
+                val mediaItem = MediaItem.Builder()
+                    .setUri(videoUri)
+                    .build()
+                exoPlayer.setMediaItem(mediaItem)
+                exoPlayer.prepare()
+            }
+
+        DisposableEffect(
+            AndroidView(factory = {
+                StyledPlayerView(context).apply {
+                    player = exoPlayer
+                }
+            })
+        ) {
+            onDispose { exoPlayer.release() }
+        }
+    }
+
 }
 
 
